@@ -10,25 +10,29 @@ from src.models.datapoint import DataPoint
 
 load_dotenv()
 db_url = os.getenv("DATABASE_URL")
-connection = None
 
-try:
-    connection = psycopg2.connect(db_url, 
-                            application_name="Data Logger", 
-                            cursor_factory=psycopg2.extras.RealDictCursor)
-except Exception as e:
-    logging.fatal("database connection failed")
-    logging.fatal(e)
-    exit()
+def db_conn():
+  connection = None
+
+  try:
+      connection = psycopg2.connect(db_url, 
+                              application_name="Data Logger", 
+                              cursor_factory=psycopg2.extras.RealDictCursor)
+  except Exception as e:
+      logging.fatal("database connection failed")
+      logging.fatal(e)
+      exit()
+
+  return connection
 
 
 def cleanup():
-  if connection is not None:
-    connection.close()
-
+  return None
 
 
 def create_schema():
+    connection = db_conn()
+
     with connection.cursor() as cur:
         cur.execute(
             """CREATE TABLE IF NOT EXISTS stations (
@@ -42,25 +46,27 @@ def create_schema():
 
         cur.execute(
           """CREATE TABLE IF NOT EXISTS datapoints (
-            station UUID NOT NULL REFERENCES stations (id) ON DELETE CASCADE,
             at TIMESTAMP,
+            station UUID NOT NULL REFERENCES stations (id) ON DELETE CASCADE,
             param0 INT,
             param1 INT,
             param2 FLOAT,
             param3 FLOAT,
             param4 STRING,
-            CONSTRAINT "primary" PRIMARY KEY (station, at ASC)
+            CONSTRAINT "primary" PRIMARY KEY (at ASC, station ASC)
           )"""
         )
         logging.debug("Created datapoints table: status message: %s", cur.statusmessage)
 
     connection.commit()
+    connection.close()
 
     return None
 
 
 
 def get_stations():
+  connection = db_conn()
   stations = []
 
   with connection.cursor() as cur:
@@ -77,12 +83,15 @@ def get_stations():
       "id": r['id'],
       "region": r['region']
     })
-  
+
+  connection.close()
+
   return stations
 
 
 
 def add_station(region: str):
+  connection = db_conn()
   with connection.cursor() as cur:
     cur.execute(
       f"UPSERT INTO stations (region) VALUES ('{region}')"
@@ -90,12 +99,14 @@ def add_station(region: str):
     logging.debug("add_station(): %s", cur.statusmessage)
   
   connection.commit()
+  connection.close()
   
   return None
 
 
 
 def log_data_point(data: DataPoint):
+  connection = db_conn()
   with connection.cursor() as cur:
     cur.execute(
       f"""UPSERT INTO datapoints
@@ -108,5 +119,6 @@ def log_data_point(data: DataPoint):
     logging.debug("log_data_point(): %s", cur.statusmessage)
   
   connection.commit()
+  connection.close()  
   
   return None
