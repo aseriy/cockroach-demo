@@ -41,11 +41,7 @@ $ cockroach start --insecure --listen-addr=localhost:26260 --join=localhost:2625
 ```
 
 ```bash
-$ cockroach start --insecure --listen-addr=localhost:26261 --join=localhost:26258,localhost:26259,localhost:26260 --http-addr=localhost:8084 --store=cockroach-data-4 --background
-```
-
-```bash
-$ cockroach start --insecure --listen-addr=localhost:26262 --join=localhost:26258,localhost:26259,localhost:26260 --http-addr=localhost:8085 --store=cockroach-data-5 --background
+$ cockroach init --host localhost:26258 --insecure
 ```
 
 Verify that the proxy is routing the traffic as expected:
@@ -94,8 +90,220 @@ http://ec2-44-203-176-182.compute-1.amazonaws.com:8080
 
 or similar.
 
+
+## Generating Workload
+
+```bash
+$ cockroach workload init bank
+I240430 08:56:24.268360 1 workload/cli/run.go:639  [-] 1  random seed: 8684093597599225673
+I240430 08:56:24.293048 1 ccl/workloadccl/fixture.go:315  [-] 2  starting import of 1 tables
+I240430 08:56:24.805379 24 ccl/workloadccl/fixture.go:492  [-] 3  imported 112 KiB in bank table (1000 rows, 0 index entries, took 455.587693ms, 0.24 MiB/s)
+I240430 08:56:24.806233 1 ccl/workloadccl/fixture.go:323  [-] 4  imported 112 KiB bytes in 1 tables (took 513.10111ms, 0.21 MiB/s)
+I240430 08:56:24.886276 1 workload/workloadsql/workloadsql.go:148  [-] 5  starting 9 splits
+```
+
+```bash
+$ nohup cockroach workload run bank > workload_bank.log 2>&1 &
+```
+
+```bash
+$ tail -f workload_bank.log
+```
+
+Add two more nodes:
+
+```bash
+$ cockroach start --insecure --listen-addr=localhost:26261 --join=localhost:26258,localhost:26259,localhost:26260 --http-addr=localhost:8084 --store=cockroach-data-4 --background
+```
+
+The 65 ranges get re-distributed between 4 nodes, resulting in 48 to 50 ranges per node.
+
+
+```bash
+$ cockroach start --insecure --listen-addr=localhost:26262 --join=localhost:26258,localhost:26259,localhost:26260 --http-addr=localhost:8085 --store=cockroach-data-5 --background
+```
+
 ## Graceful Shutdown
 
+```bash
+$ ps auxwww| grep cockroach-data-4 | grep -v grep
+```
+
+```bash
+$ kill <pid>
+```
+
+Node 4 draining
+Becomes SUSPECT
+48 ranges become under-replicated
+
+Restore the node:
+
+```bash
+$ cockroach start --insecure --listen-addr=localhost:26261 --join=localhost:26258,localhost:26259,localhost:26260 --http-addr=localhost:8084 --store=cockroach-data-4 --background
+```
+
+Waiting for 5 minutes for the system to consider the node DEAD. Within a few minutes, the 48 under-replicated ranges are redistributed about the remaining 3 nodes, resulting in 65 ranges per node.
+
+Restore the node:
+
+```bash
+$ cockroach start --insecure --listen-addr=localhost:26261 --join=localhost:26258,localhost:26259,localhost:26260 --http-addr=localhost:8084 --store=cockroach-data-4 --background
+```
+
+Dirty Shutdown
+
+```bash
+$ ps auxwww| grep cockroach-data-4 | grep -v grep
+```
+
+```bash
+$ kill -9 <pid>
+```
+
+Under-replicated ranges (49) detected before the node is classified as SUSPECT. No draining.
+5 minutes later the system declares the node DEAD and redistributes the under-replicated ranges among the remaining 3 nodes.
+
+## Remove all but one node
+
+```bash
+$ ps auxwww| grep cockroach-data-3 | grep -v grep
+```
+
+```bash
+$ kill <pid>
+```
+
+Node 3 becomes a SUSPECT, and 5 minutes later, is declared DEAD. There are 65 ranges total, all are available but under-replicated.
+
+```bash
+$ ps auxwww| grep cockroach-data-2 | grep -v grep
+```
+
+```bash
+$ kill <pid>
+```
+The single remaining node process is still up but the cluster as whole dies.
+
+```bash
+$ ps auxwww| grep cockroach-data | grep -v grep
+ubuntu       951 22.9  8.1 2260776 661884 ?      Sl   07:49  29:37 cockroach start --insecure --listen-addr=localhost:26258 --join=localhost:26258,localhost:26259,localhost:26260 --http-addr=localhost:8081 --store=cockroach-data-1
+```
+
+```bash
+ 2254.0s        0          113.9          120.9     31.5     71.3     92.3    109.1 transfer
+ 2255.0s        0          116.1          120.9     33.6     60.8     71.3     75.5 transfer
+ 2256.0s        0           24.0          120.8     28.3     54.5     75.5     75.5 transfer
+ 2257.0s        0            0.0          120.8      0.0      0.0      0.0      0.0 transfer
+ 2258.0s        0            0.0          120.7      0.0      0.0      0.0      0.0 transfer
+ 2259.0s        0            0.0          120.7      0.0      0.0      0.0      0.0 transfer
+ 2260.0s        0            0.0          120.6      0.0      0.0      0.0      0.0 transfer
+_elapsed___errors__ops/sec(inst)___ops/sec(cum)__p50(ms)__p95(ms)__p99(ms)_pMax(ms)
+ 2261.0s        0            5.0          120.6     10.5   5905.6   5905.6   5905.6 transfer
+Error: pq: result is ambiguous: error=ba: Put [/Table/106/1/790/0], [txn: 857cd75d], [protect-ambiguous-replay] RPC error: grpc: grpc: the client connection is closing [code 1/Canceled] [exhausted] (last error: failed to connect to n4 at localhost:26261: initial connection heartbeat failed: grpc: connection error: desc = "transport: error while dialing: dial tcp 127.0.0.1:26261: connect: connection refused" [code 14/Unavailable])
+```
+
+Bringing up Node 2 revives the cluster:
+
+```bash
+$ cockroach start --insecure --listen-addr=localhost:26259 --join=localhost:26258,localhost:26259,localhost:26260 --http-addr=localhost:8082 --store=cockroach-data-2 --background
+```
+
+Bringing up Node 3 restores full replication:
+
+```bash
+$ cockroach start --insecure --listen-addr=localhost:26260 --join=localhost:26258,localhost:26259,localhost:26260 --http-addr=localhost:8083 --store=cockroach-data-3 --background
+```
+
+The workload generator appears to have died once it lost the connection to the cluster.
+
+Cleanup:
+
+```
+$ cockroach sql --insecure
+```
+
+```sql
+> DROP DATABASE bank CASCADE;
+```
+
+## Alternative Workload Generation
+
+```bash
+$ pgbench
+```
+
+On Ubuntu 20.04, it can be installed (without the Postgres server):
+
+```bash
+$ sudo apt-get install postgresql-contrib
+```
+
+```bash
+$ pgbench --version
+pgbench (PostgreSQL) 14.11 (Ubuntu 14.11-0ubuntu0.22.04.1)
+```
+
+Some helpful references:
+
+- https://medium.com/@c.ucanefe/pgbench-load-test-166bdfb5c75a
+- https://dzone.com/articles/using-pgbench-with-cockroachdb-serverless
+
+
+First, create a new database from the SQL shell:
+
+```sql
+> CREATE DATABASE example;
+```
+
+Then initialize the new database. `pgbench` will create new table(s). Below, the scale factor tells `pgbench` to create 50 times as many rows.
+
+```bash
+$ pgbench --host=localhost --port=26257 --user=root --initialize --no-vacuum example
+```
+
+Output:
+
+```bash
+dropping old tables...
+creating tables...
+NOTICE:  storage parameter "fillfactor" is ignored
+NOTICE:  storage parameter "fillfactor" is ignored
+NOTICE:  storage parameter "fillfactor" is ignored
+generating data (client-side)...
+100000 of 100000 tuples (100%) done (elapsed 0.10 s, remaining 0.00 s)
+creating primary keys...
+done in 18.80 s (drop tables 0.50 s, create tables 0.15 s, client-side generate 5.76 s, primary keys 12.39 s).
+```
+
+The database can be scaled to have move rows in the tables:
+
+```bash
+$ pgbench --host=localhost --port=26257 --user=root --initialize --no-vacuum --scale=5 example
+```
+
+```bash
+$ pgbench --host=localhost --port=26257 --user=root --log --client=2 --jobs=5 --transactions=1000 example
+```
+
+Output:
+
+```bash
+pgbench (14.11 (Ubuntu 14.11-0ubuntu0.22.04.1), server 13.0.0)
+transaction type: <builtin: TPC-B (sort of)>
+scaling factor: 5
+query mode: simple
+number of clients: 2
+number of threads: 2
+number of transactions per client: 1000
+number of transactions actually processed: 2000/2000
+latency average = 83.161 ms
+initial connection time = 1.959 ms
+tps = 24.049677 (without initial connection time)
+```
+
+
+## Other Stuff
 
 
 ```bash
@@ -120,3 +328,5 @@ $ cockroach start --insecure --listen-addr=localhost:26262 --join=localhost:2625
 ```bash
 $ uvicorn main:app --host 0.0.0.0 --port 9000 --reload
 ```
+
+
