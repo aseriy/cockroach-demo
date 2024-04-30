@@ -302,31 +302,101 @@ initial connection time = 1.959 ms
 tps = 24.049677 (without initial connection time)
 ```
 
+Cleanup:
 
-## Other Stuff
-
-
-```bash
-$ cockroach node decomission 5 --insecure
-```
-
-```bash
-cockroach node recommission 5 --insecure
+```sql
+> DROP DATABASE example CASCADE;
 ```
 
 
-```bash
-$ ps auxwww|grep cockroach
-$ kill <pid>
-```
+## Data Collection Application
 
-```bash
-$ cockroach start --insecure --listen-addr=localhost:26262 --join=localhost:26258,localhost:26259,localhost:26260 --http-addr=localhost:8085 --store=cockroach-data-5 --background
-```
 
+```sql
+> CREATE DATABASE takehome;
+```
 
 ```bash
 $ uvicorn main:app --host 0.0.0.0 --port 9000 --reload
+INFO:     Will watch for changes in these directories: ['/Users/31aas586/git/cockroach-demo']
+INFO:     Uvicorn running on http://0.0.0.0:9000 (Press CTRL+C to quit)
+INFO:     Started reloader process [84911] using StatReload
+INFO:     Started server process [84913]
+INFO:     Waiting for application startup.
+DEBUG     Created stations table: status message: CREATE TABLE
+DEBUG     Created datapoints table: status message: CREATE TABLE
+INFO:     Application startup complete.
 ```
 
+Verify that the tables have been created:
 
+```sql
+> SET DATABASE = takehome;
+> SHOW TABLES;
+```
+
+```bash
+schema_name | table_name | type  | owner | estimated_row_count | locality
+--------------+------------+-------+-------+---------------------+-----------
+  public      | datapoints | table | root  |                   0 | NULL
+  public      | stations   | table | root  |                   0 | NULL
+(2 rows)
+```
+
+```sql
+> SHOW CREATE TABLE stations;
+```
+
+```bash
+  table_name |                  create_statement
+-------------+-----------------------------------------------------
+  stations   | CREATE TABLE public.stations (
+             |     id UUID NOT NULL DEFAULT gen_random_uuid(),
+             |     region STRING NOT NULL,
+             |     CONSTRAINT stations_pkey PRIMARY KEY (id ASC),
+             |     INDEX index_region (region ASC)
+             | )
+(1 row)
+```
+
+```sql
+> SHOW CREATE TABLE datapoints;
+```
+
+```bash
+  table_name |                                               create_statement
+-------------+----------------------------------------------------------------------------------------------------------------
+  datapoints | CREATE TABLE public.datapoints (
+             |     at TIMESTAMP NOT NULL,
+             |     station UUID NOT NULL,
+             |     param0 INT8 NULL,
+             |     param1 INT8 NULL,
+             |     param2 FLOAT8 NULL,
+             |     param3 FLOAT8 NULL,
+             |     param4 STRING NULL,
+             |     CONSTRAINT "primary" PRIMARY KEY (at ASC, station ASC),
+             |     CONSTRAINT datapoints_station_fkey FOREIGN KEY (station) REFERENCES public.stations(id) ON DELETE CASCADE
+             | )
+(1 row)
+```
+
+In a browser, open the following URL:
+
+```bash
+http://localhost:9000/docs
+```
+
+From this OpenAPI screen, we can run some basic operations, such as adding data stations and logging data points.
+
+
+List all registered stations:
+
+```bash
+$ python3 src/client/station.py --url http://localhost:9000 list
+```
+
+Simulate data point sent by the stations in a give region:
+
+```bash
+python3 src/client/station.py --url http://localhost:9000 generate --region US-East
+```

@@ -52,7 +52,7 @@ def list(args):
 init_random_ranges = {
   "interval": {
     "low": 1,
-    "high": 60
+    "high": 30
   },
   "param0": {
     "low": 0,
@@ -79,7 +79,12 @@ init_random_ranges = {
 }
 
 
-def generate(args):
+
+scheduler = BlockingScheduler()
+scheduler.add_executor('processpool')
+
+
+def update_stations(args):
   stations = get_stations(args)
   stations = [station['id'] for station in stations if station['region'] == args.region]
   print(json.dumps(stations, indent=2))
@@ -87,28 +92,43 @@ def generate(args):
   random_ranges = init_random_ranges
   url = f"{args.url}/api/datapoint"
 
-  scheduler = BlockingScheduler()
-  scheduler.add_executor('processpool')
-
   for station in stations:
     interval = random.randint(
                       random_ranges['interval']['low'],
                       random_ranges['interval']['high']
                     )
-    print(f"{station}\t{interval} sec(s)")
-    scheduler.add_job(
-      single_data_point,
-      'interval',
-      [url, station],
-      seconds = interval
-    )
+
+    if scheduler.get_job(station) is None:
+      print(f"{station}\t{interval} sec(s)")
+      scheduler.add_job(
+        single_data_point,
+        'interval',
+        [url, station],
+        seconds = interval,
+        id = station
+      )
+
+  return None
+
+
+def generate(args):
+
+  update_stations(args)
+
+  scheduler.add_job(
+    update_stations,
+    'interval',
+    [args],
+    seconds = 60
+  )
 
   print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
 
   try:
-      scheduler.start()
+    scheduler.start()
   except (KeyboardInterrupt, SystemExit):
-      pass
+    scheduler.shutdown()
+    pass
 
   return None
 
