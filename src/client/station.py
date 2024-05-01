@@ -52,7 +52,7 @@ def list(args):
 init_random_ranges = {
   "interval": {
     "low": 1,
-    "high": 30
+    "high": 10
   },
   "param0": {
     "low": 0,
