@@ -86,7 +86,8 @@ scheduler.add_executor('processpool')
 
 def update_stations(args):
   stations = get_stations(args)
-  stations = [station['id'] for station in stations if station['region'] == args.region]
+
+  stations = [station['id'] for station in stations if station['region'] in args.region[0]]
   print(json.dumps(stations, indent=2))
   
   random_ranges = init_random_ranges
@@ -112,7 +113,6 @@ def update_stations(args):
 
 
 def generate(args):
-
   update_stations(args)
 
   scheduler.add_job(
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     # create the parser for the "generate" command
     sub_gen = subparsers.add_parser('generate', aliases=['gen'], help='Generate data points')
     sub_gen.set_defaults(func=generate)
-    sub_gen.add_argument("-r", "--region", type=str, required=True,
+    sub_gen.add_argument("-r", "--region", type=str, required=True, action='append', nargs='+',
                         help="The region from which the stations will be sending data."
                     )
 
