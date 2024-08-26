@@ -1,0 +1,7 @@
+services:
+
+  datapoint-api:
+    container_name: datapoint-api
+    image: datapoint-api
+    ports:
+      - "9000:9000"
