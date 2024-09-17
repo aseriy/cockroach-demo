@@ -1,7 +1,38 @@
-services:
+ervices:
 
-  datapoint-api:
-    container_name: datapoint-api
-    image: datapoint-api
+  haproxy:
+    container_name: haproxy
+    image: datapoint-haproxy
+    depends_on:
+      - api0
+      - api1
+      - api2
+      - api3
+      - api4
+      - api5
     ports:
       - "9000:9000"
+
+  api0:
+    container_name: datapoint-api
+    image: datapoint-api
+
+  api1:
+    container_name: datapoint-api
+    image: datapoint-api
+
+  api2:
+    container_name: datapoint-api
+    image: datapoint-api
+
+  api3:
+    container_name: datapoint-api
+    image: datapoint-api
+
+  api4:
+    container_name: datapoint-api
+    image: datapoint-api
+
+  api5:
+    container_name: datapoint-api
+    image: datapoint-api
