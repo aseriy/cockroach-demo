@@ -433,3 +433,16 @@ ALTER TABLE stations SET locality GLOBAL;
 ```sql
 ALTER TABLE datapoints SET LOCALITY REGIONAL BY ROW AS "region";
 ```
+
+
+## Running the API with Docker Compose
+
+Build the Docker images:
+
+```bash
+docker build -t datapoint-haproxy -f Dockerfile.haproxy .
+```
+
+```bash
+docker build -t datapoint-api -f Dockerfile.api .
+```

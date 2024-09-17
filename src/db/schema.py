@@ -71,7 +71,7 @@ def get_stations():
 
   with connection.cursor() as cur:
     cur.execute(
-      "SELECT id, region FROM stations"
+      "SELECT id, region FROM stations ORDER BY region"
     )
     logging.debug("get_stations(): %s", cur.statusmessage)
     rows = cur.fetchall()
