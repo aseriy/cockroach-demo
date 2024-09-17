@@ -1,4 +1,4 @@
-ervices:
+services:
 
   haproxy:
     container_name: haproxy
@@ -14,25 +14,26 @@ ervices:
       - "9000:9000"
 
   api0:
-    container_name: datapoint-api
+    container_name: api0
     image: datapoint-api
 
   api1:
-    container_name: datapoint-api
+    container_name: api1
     image: datapoint-api
 
   api2:
-    container_name: datapoint-api
+    container_name: api2
     image: datapoint-api
 
   api3:
-    container_name: datapoint-api
+    container_name: api3
     image: datapoint-api
 
   api4:
-    container_name: datapoint-api
+    container_name: api4
     image: datapoint-api
 
   api5:
-    container_name: datapoint-api
+    container_name: api5
     image: datapoint-api
+
