@@ -37,3 +37,9 @@ services:
     container_name: api5
     image: datapoint-api
 
+
+  station0:
+    container_name: station0
+    image: datapoint-station
+    depends_on:
+      haproxy

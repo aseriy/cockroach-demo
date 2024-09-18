@@ -446,3 +446,18 @@ docker build -t datapoint-haproxy -f Dockerfile.haproxy .
 ```bash
 docker build -t datapoint-api -f Dockerfile.api .
 ```
+
+
+
+```sql
+SELECT region, COUNT(*) AS s_count FROM stations GROUP BY region ORDER BY region;
+```
+
+```sql
+SELECT count(at), min(at), max(at) FROM datapoints AS dp JOIN stations AS s ON s.id=dp.station WHERE s.region='A';
+```
+
+```sql
+SELECT s.region, count(dp.at) FROM datapoints AS dp JOIN stations AS s ON s.id=dp.station GROUP BY s.region ORDER BY s.region;
+```
+
