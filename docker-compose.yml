@@ -13,6 +13,7 @@ services:
     ports:
       - "9000:9000"
 
+
   api0:
     container_name: api0
     image: datapoint-api
@@ -42,4 +43,83 @@ services:
     container_name: station0
     image: datapoint-station
     depends_on:
-      haproxy
+      - haproxy
+    command: --url http://haproxy:9000 generate -r A M
+
+  station1:
+    container_name: station1
+    image: datapoint-station
+    depends_on:
+      - haproxy
+    command: --url http://haproxy:9000 generate -r B N
+
+  station2:
+    container_name: station2
+    image: datapoint-station
+    depends_on:
+      - haproxy
+    command: --url http://haproxy:9000 generate -r C O
+
+  station3:
+    container_name: station3
+    image: datapoint-station
+    depends_on:
+      - haproxy
+    command: --url http://haproxy:9000 generate -r D P
+
+  station4:
+    container_name: station4
+    image: datapoint-station
+    depends_on:
+      - haproxy
+    command: --url http://haproxy:9000 generate -r E Q
+
+  station5:
+    container_name: station5
+    image: datapoint-station
+    depends_on:
+      - haproxy
+    command: --url http://haproxy:9000 generate -r F R
+
+  station6:
+    container_name: station6
+    image: datapoint-station
+    depends_on:
+      - haproxy
+    command: --url http://haproxy:9000 generate -r G S T
+
+  station7:
+    container_name: station7
+    image: datapoint-station
+    depends_on:
+      - haproxy
+    command: --url http://haproxy:9000 generate -r H U
+
+  station8:
+    container_name: station8
+    image: datapoint-station
+    depends_on:
+      - haproxy
+    command: --url http://haproxy:9000 generate -r I V
+
+  station9:
+    container_name: station9
+    image: datapoint-station
+    depends_on:
+      - haproxy
+    command: --url http://haproxy:9000 generate -r J W
+
+  station10:
+    container_name: station10
+    image: datapoint-station
+    depends_on:
+      - haproxy
+    command: --url http://haproxy:9000 generate -r K X
+
+  station511:
+    container_name: station11
+    image: datapoint-station
+    depends_on:
+      - haproxy
+    command: --url http://haproxy:9000 generate -r L Y Z
+
