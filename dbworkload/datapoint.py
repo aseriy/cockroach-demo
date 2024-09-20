@@ -48,7 +48,11 @@ class Datapoint:
         with conn.transaction() as tx:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT region, COUNT(*) AS s_count FROM stations GROUP BY region ORDER BY region"
+                    """
+                    SELECT region, COUNT(*) AS s_count FROM stations
+                    AS OF SYSTEM TIME follower_read_timestamp()
+                    GROUP BY region ORDER BY region
+                    """
                 )
                 cur.fetchone()
 
@@ -59,7 +63,9 @@ class Datapoint:
                 cur.execute(
                     """
                     SELECT s.region, count(dp.at), min(dp.at), max(dp.at), sum(dp.param0), avg(dp.param2)
-                    FROM datapoints AS dp JOIN stations AS s ON s.id=dp.station GROUP BY s.region ORDER BY s.region
+                    FROM datapoints AS dp JOIN stations AS s ON s.id=dp.station
+                    AS OF SYSTEM TIME follower_read_timestamp()
+                    GROUP BY s.region ORDER BY s.region
                     """
                 )
                 cur.fetchone()
