@@ -27,6 +27,8 @@ class Datapoint:
     # when a new executing thread is started.
     # Also, the function is a vector to receive the excuting threads's unique id and the total thread count
     def setup(self, conn: psycopg.Connection, id: int, total_thread_count: int):
+        conn.set_autocommit(False)
+        print("CONN: ", conn.autocommit)
         with conn.cursor() as cur:
             print(
                 f"My thread ID is {id}. The total count of threads is {total_thread_count}"
@@ -47,25 +49,37 @@ class Datapoint:
     def sql_count_datapoints(self, conn: psycopg.Connection):
         with conn.transaction() as tx:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT region, COUNT(*) AS s_count FROM stations
-                    AS OF SYSTEM TIME follower_read_timestamp()
-                    GROUP BY region ORDER BY region
-                    """
-                )
+                with conn.transaction():
+                    cur.execute(
+                        """
+                        SET TRANSACTION AS OF SYSTEM TIME follower_read_timestamp()
+                        """
+                    )
+                    cur.execute(
+                        """
+                        SELECT region, COUNT(*) AS s_count FROM stations
+                        GROUP BY region ORDER BY region
+                        """
+                    )
+
                 cur.fetchone()
 
 
     def sql_stats_by_region(self, conn: psycopg.Connection):
         with conn.transaction() as tx:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT s.region, count(dp.at), min(dp.at), max(dp.at), sum(dp.param0), avg(dp.param2)
-                    FROM datapoints AS dp JOIN stations AS s ON s.id=dp.station
-                    AS OF SYSTEM TIME follower_read_timestamp()
-                    GROUP BY s.region ORDER BY s.region
-                    """
-                )
+                with conn.transaction():
+                    cur.execute(
+                        """
+                        SET TRANSACTION AS OF SYSTEM TIME follower_read_timestamp()
+                        """
+                    )
+                    cur.execute(
+                        """
+                        SELECT s.region, count(dp.at), min(dp.at), max(dp.at), sum(dp.param0), avg(dp.param2)
+                        FROM datapoints AS dp JOIN stations AS s ON s.id=dp.station
+                        GROUP BY s.region ORDER BY s.region
+                        """
+                    )
+
                 cur.fetchone()
