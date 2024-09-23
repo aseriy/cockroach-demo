@@ -42,7 +42,8 @@ class Datapoint:
     def loop(self):
         return [
                 self.sql_count_datapoints,
-                self.sql_stats_by_region
+                self.sql_stats_by_region,
+                self.sql_datapoints_by_hour
             ]
 
 
@@ -83,3 +84,32 @@ class Datapoint:
                     )
 
                 cur.fetchone()
+
+
+    def sql_datapoints_by_hour(self, conn: psycopg.Connection):
+        with conn.transaction() as tx:
+            with conn.cursor() as cur:
+                with conn.transaction():
+                    cur.execute(
+                        """
+                        SET TRANSACTION AS OF SYSTEM TIME follower_read_timestamp()
+                        """
+                    )
+                    cur.execute(
+                        """
+                        WITH t AS (
+                            SELECT generate_series  (
+                                (SELECT date(min(at)) FROM datapoints)::timestamp,
+                                (SELECT date(max(at)) FROM datapoints)::timestamp+'23 hour',
+                                '1 hour'::interval) :: timestamp AS hr
+                            )    
+                            SELECT t.hr, count(dp.at)
+                            FROM t AS t JOIN datapoints AS dp
+                            ON t.hr >= dp.at AND dp.at < t.hr+'1 hour'
+                            GROUP BY t.hr
+                        """
+                    )
+
+                cur.fetchone()
+
+
